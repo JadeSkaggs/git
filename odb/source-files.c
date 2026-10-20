@@ -228,16 +228,6 @@ static bool odb_files_dir_is_usable(struct odb_source_files *files,
 	struct hashmap_entry key;
 	bool usable = false;
 
-	strbuf_realpath(&normalized_objdir, files->dirs->abspath, 1);
-
-	/* Detect cases where alternate disappeared */
-	if (!is_directory(path)) {
-		error(_("object directory %s does not exist; "
-			"check .git/objects/info/alternates"),
-		      path);
-		goto out;
-	}
-
 	/*
 	 * Prevent the common mistake of listing the same
 	 * thing twice, or object directory itself.
@@ -249,12 +239,21 @@ static bool odb_files_dir_is_usable(struct odb_source_files *files,
 		hashmap_add(&files->dirs_by_path, &files->dirs->by_path_entry);
 	}
 
-	if (!odb_files_dir_paths_cmp(files, path, normalized_objdir.buf))
-		goto out;
-
 	hashmap_entry_init(&key, strihash(path));
 	if (hashmap_get(&files->dirs_by_path, &key, path))
 		goto out;
+
+	strbuf_realpath(&normalized_objdir, files->dirs->abspath, 1);
+	if (!odb_files_dir_paths_cmp(files, path, normalized_objdir.buf))
+		goto out;
+
+	/* Detect cases where alternate disappeared */
+	if (!is_directory(path)) {
+		error(_("object directory %s does not exist; "
+			"check .git/objects/info/alternates"),
+		      path);
+		goto out;
+	}
 
 	usable = true;
 
