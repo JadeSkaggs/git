@@ -121,7 +121,7 @@ It's also possible to set a different email address for every project,
 but we're not covering that here.
 
 Step 3: Create an empty folder and 1 file
-------------------------------------------
+-----------------------------------------
 
 In your terminal, create an empty folder and change directories into it.
 Later on you could follow the same steps in this tutorial to take an
@@ -484,7 +484,7 @@ a Git repository on the internet, like connecting through SSH or open
 source Git forge software to your server.
 
 Step 10: Create an SSH key (if needed)
--------------------------------------
+--------------------------------------
 
 For Git to upload changes to another Git repository, it needs a way to
 login to that repository. One of the most popular ways to do this is
