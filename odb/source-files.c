@@ -73,6 +73,7 @@ static void odb_source_files_free(struct odb_source *source)
 		files->dirs = next;
 	}
 	hashmap_clear(&files->dirs_by_path);
+	stat_validity_clear(&files->alternates_validity);
 
 	odb_source_release(&files->base);
 	free(files);
@@ -329,22 +330,33 @@ static void parse_alternates(const char *string,
 	strbuf_release(&buf);
 }
 
-static int read_alternates(const char *object_dir, struct strvec *out)
+static void read_alternates(const char *object_dir, struct strvec *out,
+			    struct stat_validity *validity)
 {
 	struct strbuf buf = STRBUF_INIT;
 	char *path;
 
 	path = xstrfmt("%s/info/alternates", object_dir);
-	if (strbuf_read_file(&buf, path, 1024) < 0) {
-		warn_on_fopen_errors(path);
-		free(path);
-		return 0;
+	if (!validity || !stat_validity_check(validity, path)) {
+		int fd = open(path, O_RDONLY);
+		if (fd < 0) {
+			warn_on_fopen_errors(path);
+			if (validity)
+				stat_validity_clear(validity);
+		} else {
+			if (validity)
+				stat_validity_update(validity, fd);
+			if (strbuf_read(&buf, fd, 1024) < 0)
+				warning_errno(_("unable to read alternates file '%s'"),
+					      path);
+			else
+				parse_alternates(buf.buf, '\n', object_dir, out);
+			close(fd);
+		}
 	}
-	parse_alternates(buf.buf, '\n', object_dir, out);
 
 	strbuf_release(&buf);
 	free(path);
-	return 0;
 }
 
 static void add_alternate_recursively(struct odb_source_files *files,
@@ -370,7 +382,7 @@ static void add_alternate_recursively(struct odb_source_files *files,
 	hashmap_add(&files->dirs_by_path, &alternate->by_path_entry);
 
 	/* recursively add alternates */
-	read_alternates(alternate->abspath, &alternates);
+	read_alternates(alternate->abspath, &alternates, NULL);
 	if (alternates.nr && depth + 1 > 5) {
 		error(_("%s: ignoring alternate object stores, nesting too deep"),
 		      path);
@@ -389,7 +401,8 @@ static void prepare_alternates(struct odb_source_files *files,
 	struct strvec alternates = STRVEC_INIT;
 
 	parse_alternates(alternate_db, PATH_SEP, NULL, &alternates);
-	read_alternates(files->dirs->abspath, &alternates);
+	read_alternates(files->dirs->abspath, &alternates,
+			&files->alternates_validity);
 
 	for (size_t i = 0; i < alternates.nr; i++)
 		add_alternate_recursively(files, alternates.v[i], 0);
