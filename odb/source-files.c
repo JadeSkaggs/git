@@ -425,6 +425,7 @@ static enum odb_read_status odb_source_files_read_object_info(struct odb_source 
 							      struct strbuf *errmsg)
 {
 	struct odb_source_files *files = odb_source_files_downcast(source);
+	struct odb_files_dir **tail = NULL;
 	enum odb_read_status status = ODB_READ_NOT_FOUND;
 	enum odb_read_status ret;
 	bool retry = false;
@@ -448,10 +449,11 @@ retry:
 			status = ret;
 	}
 
-	for (struct odb_files_dir *dir = files->dirs; dir; dir = dir->next) {
-		if (retry)
-			break;
-
+	/*
+	 * When we have reprepared alternates then we only re-scan directories
+	 * that were newly added.
+	 */
+	for (struct odb_files_dir *dir = tail ? *tail : files->dirs; dir; dir = dir->next) {
 		ret = odb_source_read_object_info(&dir->loose->base, oid, oi, flags,
 						  status == ODB_READ_NOT_FOUND ? errmsg : NULL);
 		if (!ret)
@@ -461,6 +463,8 @@ retry:
 	}
 
 	if (!retry && !(flags & OBJECT_INFO_QUICK)) {
+		tail = files->dirs_tail;
+		prepare_alternates(files, NULL);
 		retry = true;
 		goto retry;
 	}
