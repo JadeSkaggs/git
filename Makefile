@@ -3059,7 +3059,8 @@ $(LIB_FILE): $(LIB_OBJS)
 ifndef NO_RUST
 ifeq ($(RUST_TARGETS),)
 $(RUST_LIB): rust/Cargo.toml $(RUST_SOURCES) $(LIB_FILE)
-	$(QUIET_CARGO)cargo build --manifest-path rust/Cargo.toml $(CARGO_ARGS)
+	$(QUIET_CARGO)cargo build --manifest-path rust/Cargo.toml \
+		$(CARGO_ARGS)  --target-dir=rust/target
 else
 ifneq ($(words $(RUST_TARGETS)),1)
 ifneq ($(uname_S),Darwin)
@@ -3069,7 +3070,8 @@ endif
 
 RUST_MEMBER_LIBS = $(foreach target,$(RUST_TARGETS),rust/target/$(target)/$(RUST_BUILD_CONFIG)/$(RUST_LIB_NAME))
 $(RUST_MEMBER_LIBS): rust/target/%/$(RUST_BUILD_CONFIG)/$(RUST_LIB_NAME): rust/Cargo.toml $(RUST_SOURCES) $(LIB_FILE)
-	$(QUIET_CARGO)cargo build --manifest-path rust/Cargo.toml $(CARGO_ARGS) --target $*
+	$(QUIET_CARGO)cargo build --manifest-path rust/Cargo.toml \
+		$(CARGO_ARGS) --target-dir=rust/target --target $*
 
 $(RUST_LIB): $(RUST_MEMBER_LIBS)
 	$(call mkdir_p_parent_template)
